@@ -1,0 +1,1294 @@
+classdef OPTIGRAL_APP_BackUp_291224 < matlab.apps.AppBase
+
+    % Properties that correspond to app components
+    properties (Access = public)
+        UIFigure                       matlab.ui.Figure
+        DataProcessingPanel            matlab.ui.container.Panel
+        UploadApplianceLoadProfileButton  matlab.ui.control.Button
+        ReconstructPowerProfileButton  matlab.ui.control.Button
+        DataFilteringPanel             matlab.ui.container.Panel
+        CustomerDropDown               matlab.ui.control.DropDown
+        CustomerDropDownLabel          matlab.ui.control.Label
+        EndDateDatePicker              matlab.ui.control.DatePicker
+        EndDateDatePickerLabel         matlab.ui.control.Label
+        StartDateDatePicker            matlab.ui.control.DatePicker
+        StartDateDatePickerLabel       matlab.ui.control.Label
+        ResetButton                    matlab.ui.control.Button
+        ApplyFilterButton              matlab.ui.control.Button
+        ImportenergyconsumptiondataButton  matlab.ui.control.Button
+        OPTIGRALCopyrightcLabel        matlab.ui.control.Label
+        TabGroup                       matlab.ui.container.TabGroup
+        EnergyConsumptionTab           matlab.ui.container.Tab
+        MaxkWh                         matlab.ui.control.Label
+        MaximumenergyconsumptionLabel  matlab.ui.control.Label
+        AveragekWh                     matlab.ui.control.Label
+        AverageenergyconsumptionLabel  matlab.ui.control.Label
+        CompleteDataLabel              matlab.ui.control.Label
+        EnergyConsTabl                 matlab.ui.control.Table
+        EnergyConsAxis                 matlab.ui.control.UIAxes
+        EnergyAnalysisTab              matlab.ui.container.Tab
+        Slider                         matlab.ui.control.Slider
+        SliderLabel                    matlab.ui.control.Label
+        UIAxes_6                       matlab.ui.control.UIAxes
+        UIAxes_5                       matlab.ui.control.UIAxes
+        LoadReconstructionTab_2        matlab.ui.container.Tab
+        ReconstructedTabl              matlab.ui.control.Table
+        CompareReconstructedAxis       matlab.ui.control.UIAxes
+        ReconstructedPie               matlab.ui.control.UIAxes
+        ReconstructedAxis              matlab.ui.control.UIAxes
+        HomeSignature1Tab              matlab.ui.container.Tab
+        WashMachTabl                   matlab.ui.control.Table
+        DishwashTabl                   matlab.ui.control.Table
+        EVTabl                         matlab.ui.control.Table
+        WashMachAxis                   matlab.ui.control.UIAxes
+        DishwashAxis                   matlab.ui.control.UIAxes
+        EVAxis                         matlab.ui.control.UIAxes
+        HomeSignature2Tab              matlab.ui.container.Tab
+        OvenTabl                       matlab.ui.control.Table
+        InducHobTabl                   matlab.ui.control.Table
+        AirFryerTabl                   matlab.ui.control.Table
+        OvenAxis                       matlab.ui.control.UIAxes
+        InducHobAxis                   matlab.ui.control.UIAxes
+        AirFryerAxis                   matlab.ui.control.UIAxes
+        HomeSignature3Tab              matlab.ui.container.Tab
+        FridgeTabl                     matlab.ui.control.Table
+        KettleTabl                     matlab.ui.control.Table
+        TVTabl                         matlab.ui.control.Table
+        KettleAxis                     matlab.ui.control.UIAxes
+        TVAxis                         matlab.ui.control.UIAxes
+        FridgeAxis                     matlab.ui.control.UIAxes
+        UKMasterDataTab                matlab.ui.container.Tab
+        UKMasterTabl                   matlab.ui.control.Table
+        UIAxes_7                       matlab.ui.control.UIAxes
+    end
+
+    
+    properties (Access = public)
+        Property % Description
+        dataset = struct;
+        date_filter = struct;
+        list_items = {};
+        winheight = 0;
+        winwidth = 50;
+        zoomedinwindow = '';
+        slider_xpts = [];
+        slider_ypts = [];
+        recnstruct_tab = table;
+    end
+    
+    methods (Access = private) 
+        %% Filter data
+        function [start_range_ind,end_range_ind] = data_filtering(app,numcustomer,start,End)
+            % Start
+            % Convert to dataset format
+            [start_time,start_day] = timeofday(start);
+            start_day.Format = 'yyyy-MM-dd';
+            start_rangeD = eval(['cellfun(@(x) strfind(x,datestr(start_day,''yyyy-mm-dd'')),table2cell(app.dataset.customer_',num2str(numcustomer),'.EnergyConsumptionData(:,{''Start Date''})),''UniformOutput'',false);']);
+            start_rangeD = cellfun(@(x) ~isempty(x),start_rangeD,'UniformOutput',false);
+            start_rangeH = eval(['cellfun(@(x) strfind(x,datestr(start_time,''HH:MM:ss'')),table2cell(app.dataset.customer_',num2str(numcustomer),'.EnergyConsumptionData(:,{''Start Time''})),''UniformOutput'',false);']);
+            start_rangeH = cellfun(@(x) ~isempty(x),start_rangeH,'UniformOutput',false);
+            start_rangeDH = cellfun(@(x1,x2) x1&&x2,start_rangeH,start_rangeD,'UniformOutput',false);
+            start_range_ind = find(cell2mat(start_rangeDH));
+            start_range_ind = start_range_ind(1);
+
+            % End
+            % Convert to dataset format
+            [End_time,End_day] = timeofday(End);
+            End_day.Format = 'yyyy-MM-dd';
+            end_rangeD = eval(['cellfun(@(x) strfind(x,datestr(End_day,''yyyy-mm-dd'')),table2cell(app.dataset.customer_',num2str(numcustomer),'.EnergyConsumptionData(:,{''End Date''})),''UniformOutput'',false);']);
+            end_rangeD = cellfun(@(x) ~isempty(x),end_rangeD,'UniformOutput',false);
+            end_rangeH = eval(['cellfun(@(x) strfind(x,datestr(End_time,''HH:MM:ss'')),table2cell(app.dataset.customer_',num2str(numcustomer),'.EnergyConsumptionData(:,{''End Time''})),''UniformOutput'',false);']);
+            end_rangeH = cellfun(@(x) ~isempty(x),end_rangeH,'UniformOutput',false);
+            end_rangeDH = cellfun(@(x1,x2) x1&&x2,end_rangeH,end_rangeD,'UniformOutput',false);
+            end_range_ind = find(cell2mat(end_rangeDH));
+            end_range_ind = end_range_ind(1);
+        end
+        
+        %% Populate load profiles table
+        function populatepowerprofiletab(app,cust_cnt,appliance,file,axistodraw,tabletowrite_cyc)
+            % Get info about Excel file
+            [status,sheets] = xlsfinfo(file);
+            % Get appliance's cycles
+            eval(['cycles=tabletowrite_cyc.RowName;'])
+            % Remove spaces from names
+            cycles = cellfun(@(x) erase(x,' '),cycles,'UniformOutput',false);
+            sheets = cellfun(@(x) erase(x,' '),sheets,'UniformOutput',false);
+            
+            % Check that imported data is not empty
+            if ~(isempty(cycles) || isempty(sheets))
+                for cnt = 1 : length(sheets)
+                    % read data from excel file
+                    xpts = xlsread(file,sheets{cnt},'A:A');
+                    ypts = xlsread(file,sheets{cnt},'B:B');
+
+                    % Store data in dataset structure
+                    eval(['app.dataset.customer_',num2str(cust_cnt),'.',appliance,'_',sheets{cnt},'_PwrProf=table(xpts,ypts,''VariableNames'',{''Time(mn)'',''Power(kW)''});']);
+
+                    % Find row of table to write in
+                    pat = sheets(cnt);
+                    pat = split(pat,'_');
+                    tablerow = find(strcmp(cycles,pat(1)));
+
+                    % Plot data on axes
+                    plot(axistodraw,xpts,ypts)
+                    hold(axistodraw,'on')
+                    xlabel(axistodraw,'Time(mn)')
+                    ylabel(axistodraw,'Power(kW)')
+                    legend(axistodraw,sheets)
+
+                    % Process energy data
+                    num_phases = 1; minval = 0; maxval = 0; phase_duration = 0; nrgcum = []; phasetabl = table('Size',size(xpts),'VariableTypes',{'string'});
+                    for cnt1 = 1 :length(ypts)-1
+                        % Check change of phase
+                        if ypts(cnt1) ~= ypts(cnt1+1) || cnt1 == length(ypts)-1 
+                            % Store energy per phase
+                            nrg_per_phase = table(trapz(nrgcum/60));
+                            eval(['tabletowrite_cyc.Data(',num2str(tablerow),',',num2str(num_phases),') = nrg_per_phase;']) %Match row name with sheet name
+                            % Store phase duration
+                            eval(['tabletowrite_cyc.Data(',num2str(tablerow-1),',',num2str(num_phases),') = table(phase_duration);'])
+                            % Increment the number of phases
+                            num_phases = num_phases + 1;
+                            % Reinitialise duration count
+                            phase_duration = 0;
+                            nrgcum = 0;
+                        else
+                            % Increment phase duration counter
+                            phase_duration = phase_duration + 1;
+                            % Calculate energy consumed per phase
+                            nrgcum = [nrgcum ypts(cnt1)];
+                        end
+                        % Populate phase table
+                        phasetabl(cnt1,1) = {['Phase ',num2str(num_phases)]};
+                    end
+                    % Rename phase table variable
+                    phasetabl.Properties.VariableNames={'Phase'};
+                    % Concatenate tables
+                    eval(['app.dataset.customer_',num2str(cust_cnt),'.',appliance,'_',sheets{cnt},'_PwrProf=[app.dataset.customer_',num2str(cust_cnt),'.',appliance,'_',sheets{cnt},'_PwrProf [phasetabl(1,''Phase'');phasetabl(1:end-1,''Phase'')]];']);
+                end
+            end
+        end
+        
+        %% Create appliance table
+        function createappliancetable(app,cyclenames,phasenum,cyctabltowrite)
+            % Cycle/Phase table
+            eval(['cyctabltowrite.ColumnName = phasenum;'])
+            eval(['cyctabltowrite.RowName =cyclenames;'])
+            eval(['cyctabltowrite.Data = table(''Size'',[length(cyclenames),length(phasenum)],''VariableTypes'',repmat({''double''},1,length(phasenum)));']);       
+        end
+    end
+    
+
+    % Callbacks that handle component events
+    methods (Access = private)
+
+        % Button pushed function: ImportenergyconsumptiondataButton
+        function ImportenergyconsumptiondataButtonPushed(app, event)
+            %% Import energy consumption data
+            cnt_cust = 0; more_data_ans = 'Yes'; 
+
+            % Import data
+            while strcmp(more_data_ans,'Yes')
+                % Increment count
+                cnt_cust = cnt_cust + 1;
+                eval(['[filename_',num2str(cnt_cust),',pathname_',num2str(cnt_cust),'] = uigetfile(''*.*'',''Select energy consumption data'');']);
+                % Get file's extension
+                eval(['[~,~,filext] = fileparts([pathname_',num2str(cnt_cust),',filename_',num2str(cnt_cust),']);'])
+                % Store dataset
+                eval(['app.dataset.customer_',num2str(cnt_cust),'.filenames=filename_',num2str(cnt_cust),';'])
+                % Populate customer drop-down list
+                if isempty(app.CustomerDropDown.Items)
+                    app.CustomerDropDown.Items = {['Customer ',num2str(cnt_cust)]};
+                else
+               
+                    app.CustomerDropDown.Items = [app.CustomerDropDown.Items {['Customer',num2str(cnt_cust)]}];
+                end
+                % Import more data?
+                more_data_ans = questdlg('Import more data?','Energy Consumption Data','Yes','No','No');
+            end
+            
+            %% Convert files to table and plot the graphes
+            for cnt = 1 : length(fields(app.dataset))
+                switch filext
+                    case '.csv'
+                        % Import data
+                        eval(['data = readcell([pathname_',num2str(cnt),',filename_',num2str(cnt),']);']);
+
+                        % Get variables names
+                        varnames = data(1,:);
+                        % Parse variable names
+                        parsednames = cellfun(@(x) split(x,{'/','(',')','-'}),varnames,'UniformOutput',false);
+                        varnames4tab = cellfun(@(x) x{1,1},parsednames,'UniformOutput',false);
+                        varnames4tab = cellfun(@(x) strrep(x,' ',''),varnames4tab,'UniformOutput',false);
+
+                        % Store energy consumption data into table
+                        eval(['app.dataset.customer_',num2str(cnt),'.EnergyConsumptionData = cell2table(data(2:end,:),''VariableNames'',varnames4tab);']);
+
+                        % Separate date and time column
+                        % Start date and time separation
+                        startdatetime_column = eval(['cellfun(@(x) split(x,{''T'',''+''}), table2cell(app.dataset.customer_',num2str(cnt),'.EnergyConsumptionData(:,''Start'')),''UniformOutput'',false)']);
+                        startdate_column = eval(['cellfun(@(x) x{1,1}, startdatetime_column,''UniformOutput'',false)']);
+                        startdate_column = table(startdate_column,'VariableNames',{'Start Date'});
+                        starttime_column = eval(['cellfun(@(x) x{2,1}, startdatetime_column,''UniformOutput'',false)']);
+                        starttime_column = table(starttime_column,'VariableNames',{'Start Time'});
+
+                        % End date and time separation
+                        enddatetime_column = eval(['cellfun(@(x) split(x,{''T'',''+''}), table2cell(app.dataset.customer_',num2str(cnt),'.EnergyConsumptionData(:,''End'')),''UniformOutput'',false)']);
+                        enddate_column = eval(['cellfun(@(x) x{1,1}, enddatetime_column,''UniformOutput'',false)']);
+                        enddate_column = table(enddate_column,'VariableNames',{'End Date'});
+                        endtime_column = eval(['cellfun(@(x) x{2,1}, enddatetime_column,''UniformOutput'',false)']);
+                        endtime_column = table(endtime_column,'VariableNames',{'End Time'});
+
+                        % Delete original start and end
+                        eval(['app.dataset.customer_',num2str(cnt),'.EnergyConsumptionData(:,''Start'') = [];']);
+                        eval(['app.dataset.customer_',num2str(cnt),'.EnergyConsumptionData(:,''End'') = [];']);
+                        % Concatenate the new columns
+                        eval(['app.dataset.customer_',num2str(cnt),'.EnergyConsumptionData = [app.dataset.customer_',num2str(cnt),'.EnergyConsumptionData startdate_column starttime_column enddate_column endtime_column];']);
+
+                        % Convert data from energy to power
+                        eval(['app.dataset.powerdata.customer',num2str(cnt),'data = diff(table2array(app.dataset.customer_',num2str(cnt),'.EnergyConsumptionData(:,''Consumption'')));']);
+                        eval(['app.dataset.powerdata.customer',num2str(cnt),'data = array2table(app.dataset.powerdata.customer',num2str(cnt),'data,''VariableNames'',{''Consumption''});']);
+                        eval(['app.dataset.powerdata.customer',num2str(cnt),'data = [app.dataset.powerdata.customer',num2str(cnt),'data startdate_column(1:end-1,''Start Date'') starttime_column(1:end-1,''Start Time'') enddate_column(1:end-1,''End Date'') endtime_column(1:end-1,''End Time'')];']);
+                        
+                end
+
+                % Plot graphs
+                % Breakpoints
+                xpts = eval(['1:length(table2array(app.dataset.customer_',num2str(cnt),'.EnergyConsumptionData(:,{''Start Date''})))']);
+                xnames = eval(['table2cell(app.dataset.customer_',num2str(cnt),'.EnergyConsumptionData(:,{''Start Date''}))']);
+
+                % Energy plot
+                energy_ypts = eval(['table2array(app.dataset.customer_',num2str(cnt),'.EnergyConsumptionData(:,{''Consumption''}))']);
+                plot(app.EnergyConsAxis,xpts,energy_ypts); plot(app.UIAxes_5,xpts,energy_ypts);
+                xlabel(app.EnergyConsAxis,'Time of the day'); xlabel(app.UIAxes_5,'Time of the day');
+                ylabel(app.EnergyConsAxis,'Energy consumed'); ylabel(app.UIAxes_5,'Energy consumed');
+            end
+            
+            % Calculate average consumption
+            app.AveragekWh.Text = [num2str(mean(energy_ypts)),' kWh'];
+
+            % Calculate maximum consumption
+            app.MaxkWh.Text = [num2str(max(energy_ypts)),' kWh'];
+
+            %% Populate the energy & power consumption tables
+            % Energy Table
+            variablenames = eval(['app.dataset.customer_',num2str(cnt),'.EnergyConsumptionData.Properties.VariableNames;']);
+            app.EnergyConsTabl.ColumnName = variablenames;
+            app.EnergyConsTabl.Data = eval(['table2cell(app.dataset.customer_',num2str(cnt),'.EnergyConsumptionData(:,variablenames))']);
+
+            %%  Populate the appliance load profile tables
+            colnames_feat = {'Value'}; 
+            featurenames = {'Total Energy Consumed','Average Energy Consumed','Number of phases','Minimum phase duration','Maximum phase duration'};
+            
+            % EV
+            % Feature table
+            phasenum_EV = {'Phase 1','Phase 2','Phase 3'}; 
+            cyclenames_EV = {'Phase Duration - EV (mn)','EV'};
+            createappliancetable(app,cyclenames_EV,phasenum_EV,app.EVTabl)
+            
+            % Dishwasher
+            phasenum_dw = {'Phase 1','Phase 2','Phase 3','Phase 4','Phase 5','Phase 6','Phase 7','Phase 8','Phase 9','Phase 10','Phase 11'}; 
+            cyclenames_dw = {'Phase Duration - ECO (mn)','ECO','Phase Duration - Mini (mn)','Mini','Phase Duration - QS (mn)','Quick and Shine','Phase Duration - Int (mn)','Intensive'};
+            createappliancetable(app,cyclenames_dw,phasenum_dw,app.DishwashTabl)
+            
+            % Washing Machine
+            phasenum_wm = {'Phase 1','Phase 2','Phase 3','Phase 4','Phase 5','Phase 6','Phase 7','Phase 8','Phase 9','Phase 10','Phase 11','Phase 12','Phase 13','Phase 14','Phase 15','Phase 16','Phase 17','Phase 18','Phase 19'};    %%%%HARD CODED%%%%
+            cyclenames_wm = {'Phase Duration - AS (mn)','Anti Stain','Phase Duration - Wh (mn)','Whites','Phase Duration - CS (mn)','Cotton Standard','Phase Duration - Syn (mn)','Synthetics','Phase Duration - Ref (mn)','Refresh','Phase Duration - MW (mn)','Mix Wash','Phase Duration - FW (mn)','Fast Wash','Phase Duration - AA (mn)','Anti Allergy','Phase Duration - Sh (mn)','Shirts','Phase Duration - Wl (mn)','Wool','Phase Duration - Del (mn)','Delicates','Phase Duration - Sp (mn)','Spin'};
+            createappliancetable(app,cyclenames_wm,phasenum_wm,app.WashMachTabl)
+
+            % AirFryer
+            phasenum_AirFryer = {'Phase 1','Phase 2','Phase 3'}; 
+            cyclenames_AirFryer = {'Phase Duration - P1 (mn)','Prog1','Phase Duration - P2 (mn)','Prog2','Phase Duration - P3 (mn)','Prog3'};
+            createappliancetable(app,cyclenames_AirFryer,phasenum_AirFryer,app.AirFryerTabl)
+            
+            % Induction hob
+            phasenum_InducHob = {'Phase 1','Phase 2','Phase 3'}; 
+            cyclenames_InducHob = {'Phase Duration - P1 (mn)','Prog1','Phase Duration - P2 (mn)','Prog2','Phase Duration - P3 (mn)','Prog3'};
+            createappliancetable(app,cyclenames_InducHob,phasenum_InducHob,app.InducHobTabl)
+            
+            % Oven
+            phasenum_Oven = {'Phase 1','Phase 2','Phase 3','Phase 4','Phase 5'}; 
+            cyclenames_Oven = {'Phase Duration - P1 (mn)','Prog1','Phase Duration - P2 (mn)','Prog2','Phase Duration - P3 (mn)','Prog3'};
+            createappliancetable(app,cyclenames_Oven,phasenum_Oven,app.OvenTabl)
+
+            % Fridge
+            phasenum_Fridge = {'Phase 1','Phase 2','Phase 3'}; 
+            cyclenames_Fridge = {'Phase Duration - P1 (mn)','Prog1'};
+            createappliancetable(app,cyclenames_Fridge,phasenum_Fridge,app.FridgeTabl)
+            
+            % TV
+            phasenum_TV = {'Phase 1','Phase 2','Phase 3'}; 
+            cyclenames_TV = {'Phase Duration - P1 (mn)','TV'};
+            createappliancetable(app,cyclenames_TV,phasenum_TV,app.TVTabl)
+            
+            % Kettle
+            phasenum_Kettle = {'Phase 1','Phase 2','Phase 3'}; 
+            cyclenames_Kettle = {};
+            createappliancetable(app,cyclenames_Kettle,phasenum_Kettle,app.KettleTabl)
+
+            %% Configure Slider
+            app.Slider.Limits = [0 length(energy_ypts)];
+            % Creating moving window on plot
+            app.winheight = max(energy_ypts);
+            hold(app.UIAxes_5,'on')
+            h = polyshape([0 0 app.winwidth app.winwidth],[0 app.winheight app.winheight 0]);
+            app.zoomedinwindow = plot(app.UIAxes_5,h,'FaceColor','r','FaceAlpha',0.1,'LineWidth',0.1);
+
+            %% Populate appliances load profile tables
+            % EV
+            populatepowerprofiletab(app,cnt_cust,'EV','Appliances Power Profile Data\EV_Power.xlsx',app.EVAxis,app.EVTabl)
+            % Store table in dataset
+            eval(['app.dataset.customer_',num2str(cnt),'.EVConsumptionData=app.EVTabl.Data;'])
+            eval(['app.dataset.customer_',num2str(cnt),'.EVConsumptionData.Properties.VariableNames=app.EVTabl.ColumnName;'])
+            eval(['app.dataset.customer_',num2str(cnt),'.EVConsumptionData.Properties.RowNames=app.EVTabl.RowName;'])
+            % Dishwasher
+            populatepowerprofiletab(app,cnt_cust,'Dishwash','Appliances Power Profile Data\Dishwasher_Power.xlsx',app.DishwashAxis,app.DishwashTabl)
+            % Store table in dataset
+            eval(['app.dataset.customer_',num2str(cnt),'.DishwashConsumptionData=app.DishwashTabl.Data;'])
+            eval(['app.dataset.customer_',num2str(cnt),'.DishwashConsumptionData.Properties.VariableNames=app.DishwashTabl.ColumnName;'])
+            eval(['app.dataset.customer_',num2str(cnt),'.DishwashConsumptionData.Properties.RowNames=app.DishwashTabl.RowName;'])
+            % Washine machine 
+            populatepowerprofiletab(app,cnt_cust,'WashMach','Appliances Power Profile Data\Washing_Machine_Power.xlsx',app.WashMachAxis,app.WashMachTabl)
+            % Store table in dataset
+            eval(['app.dataset.customer_',num2str(cnt),'.WashMachConsumptionData=app.WashMachTabl.Data;'])
+            eval(['app.dataset.customer_',num2str(cnt),'.WashMachConsumptionData.Properties.VariableNames=app.WashMachTabl.ColumnName;'])
+            eval(['app.dataset.customer_',num2str(cnt),'.WashMachConsumptionData.Properties.RowNames=app.WashMachTabl.RowName;'])
+            % Oven
+            populatepowerprofiletab(app,cnt_cust,'Oven','Appliances Power Profile Data\Oven_Power.xlsx',app.OvenAxis,app.OvenTabl)
+            % Store table in dataset
+            eval(['app.dataset.customer_',num2str(cnt),'.OvenConsumptionData=app.OvenTabl.Data;'])
+            eval(['app.dataset.customer_',num2str(cnt),'.OvenConsumptionData.Properties.VariableNames=app.OvenTabl.ColumnName;'])
+            eval(['app.dataset.customer_',num2str(cnt),'.OvenConsumptionData.Properties.RowNames=app.OvenTabl.RowName;'])
+            % Air fryer
+            populatepowerprofiletab(app,cnt_cust,'AirFryer','Appliances Power Profile Data\AirFryer_Power.xlsx',app.AirFryerAxis,app.AirFryerTabl)
+            % Store table in dataset
+            eval(['app.dataset.customer_',num2str(cnt),'.OvenConsumptionData=app.AirFryerTabl.Data;'])
+            eval(['app.dataset.customer_',num2str(cnt),'.OvenConsumptionData.Properties.VariableNames=app.AirFryerTabl.ColumnName;'])
+            eval(['app.dataset.customer_',num2str(cnt),'.OvenConsumptionData.Properties.RowNames=app.AirFryerTabl.RowName;'])
+            % Fridge
+            populatepowerprofiletab(app,cnt_cust,'Fridge','Appliances Power Profile Data\Fridge_Power.xlsx',app.FridgeAxis,app.FridgeTabl)
+            % Store table in dataset
+            eval(['app.dataset.customer_',num2str(cnt),'.FridgeConsumptionData=app.FridgeTabl.Data;'])
+            eval(['app.dataset.customer_',num2str(cnt),'.FridgeConsumptionData.Properties.VariableNames=app.FridgeTabl.ColumnName;'])
+            eval(['app.dataset.customer_',num2str(cnt),'.FridgeConsumptionData.Properties.RowNames=app.FridgeTabl.RowName;'])
+            % TV
+            populatepowerprofiletab(app,cnt_cust,'TV','Appliances Power Profile Data\TV_Power.xlsx',app.TVAxis,app.TVTabl)
+            % Store table in dataset
+            eval(['app.dataset.customer_',num2str(cnt),'.TVConsumptionData=app.TVTabl.Data;'])
+            eval(['app.dataset.customer_',num2str(cnt),'.TVConsumptionData.Properties.VariableNames=app.TVTabl.ColumnName;'])
+            eval(['app.dataset.customer_',num2str(cnt),'.TVConsumptionData.Properties.RowNames=app.TVTabl.RowName;'])
+
+            %% Create probabilistic biases
+            % Create timing table
+            % Appliance list
+            applname = {'EV','Dishwash','WashMach','AirFryer','InducHob','Oven','Fridge','TV','Kettle'};
+            % Hourly time of the day in table
+            timeofuse = [1:24];
+            eval(['app.dataset.customer_',num2str(cnt_cust),'.TimeTabl=table(''Size'',[length(applname) length(timeofuse)],''VariableTypes'',repmat({''double''},1,length(timeofuse)));']);
+            eval(['app.dataset.customer_',num2str(cnt_cust),'.TimeTabl.Properties.VariableNames={''00:00 - 01:00'',''01:00 - 02:00'',''02:00 - 03:00'',''03:00 - 04:00'',''04:00 - 05:00'',''05:00 - 06:00'',''06:00 - 07:00'',''07:00 - 08:00'',''08:00 - 09:00'',''09:00 - 10:00'',''10:00 - 11:00'',''11:00 - 12:00'',''12:00 - 13:00'',''13:00 - 14:00'',''14:00 - 15:00'',''15:00 - 16:00'',''16:00 - 17:00'',''17:00 - 18:00'',''18:00 - 19:00'',''19:00 - 20:00'',''20:00 - 21:00'',''21:00 - 22:00'',''22:00 - 23:00'',''23:00 - 00:00''};']);
+            eval(['app.dataset.customer_',num2str(cnt_cust),'.TimeTabl.Properties.RowNames=applname;']);
+            % 
+            EV_time = [1:5 24]; Dishwash_time = [1:5 24]; WashMach_time = [1:5 24]; 
+            AirFryer_time = [12:14 17:22]; InducHob_time = [12:14 17:22]; Oven_time = [12:14 17:22]; 
+            Fridge_time = [1:24]; TV_time = [16:24]; Kettle_time = [7:10 12:15 19:22];
+            % Populate table
+            for cnt = 1 : length(applname)
+                eval(['app.dataset.customer_',num2str(cnt_cust),'.TimeTabl(applname{cnt},',applname{cnt},'_time)=table(1);'])
+            end
+            eval(['app.UKMasterTabl.Data = app.dataset.customer_',num2str(cnt_cust),'.TimeTabl;']);
+            eval(['app.UKMasterTabl.ColumnName = app.dataset.customer_',num2str(cnt_cust),'.TimeTabl.Properties.VariableNames;']);
+            eval(['app.UKMasterTabl.RowName = app.dataset.customer_',num2str(cnt_cust),'.TimeTabl.Properties.RowNames;']);
+            
+            % Plot histogram
+            eval(['bar3(app.UIAxes_7,table2array(app.dataset.customer_',num2str(cnt_cust),'.TimeTabl));'])
+            xticks(app.UIAxes_7,[1:24])
+            xticklabels(app.UIAxes_7,{'00:00 - 01:00','01:00 - 02:00','02:00 - 03:00','03:00 - 04:00','04:00 - 05:00','05:00 - 06:00','06:00 - 07:00','07:00 - 08:00','08:00 - 09:00','09:00 - 10:00','10:00 - 11:00','11:00 - 12:00','12:00 - 13:00','13:00 - 14:00','14:00 - 15:00','15:00 - 16:00','16:00 - 17:00','17:00 - 18:00','18:00 - 19:00','19:00 - 20:00','20:00 - 21:00','21:00 - 22:00','22:00 - 23:00','23:00 - 00:00'});
+            xtickangle(app.UIAxes_7,90);
+            eval(['yticklabels(app.UIAxes_7,app.dataset.customer_',num2str(cnt_cust),'.TimeTabl.Properties.RowNames);']);
+            app.UIAxes_7.View = [-10.5101 17.1375];
+
+            % date filter initialisation
+            eval(['app.dataset.customer_',num2str(cnt_cust),'.date_filter.startIndex = 1;']);
+            eval(['app.dataset.customer_',num2str(cnt_cust),'.date_filter.endIndex = height(app.dataset.customer_',num2str(cnt_cust),'.EnergyConsumptionData);']);
+        end
+
+        % Value changed function: StartDateDatePicker
+        function StartDateDatePickerValueChanged(app, event)
+            value = app.StartDateDatePicker.Value;
+
+            % Get selected customeromer number
+            numcustomer = split(app.CustomerDropDown.Value, ' ');
+            numcustomer = numcustomer(end);
+            numcustomer = str2num(cell2mat(numcustomer));
+
+            % Check that the selected date is within the data range
+            if value < eval(['datetime(table2cell(app.dataset.customer_',num2str(numcustomer),'.EnergyConsumptionData(1,''Start Date'')))'])
+                % Replace with dataset start date when selected start date is prior
+                app.date_filter.start = eval(['datetime(table2cell(app.dataset.customer_',num2str(numcustomer),'.EnergyConsumptionData(1,''Start Date'')));']);
+                eval(['app.dataset.customer_',num2str(numcustomer),'.date_filter.start = datetime(table2cell(app.dataset.customer_',num2str(numcustomer),'.EnergyConsumptionData(1,''Start Date'')));']);
+                app.StartDateDatePicker.Value = eval(['datetime(table2cell(app.dataset.customer_',num2str(numcustomer),'.EnergyConsumptionData(1,''Start Date'')));']);
+                msgbox('The selected date was replaced by the dataset start date as it is prior to it.')
+            elseif value > eval(['datetime(table2cell(app.dataset.customer_',num2str(numcustomer),'.EnergyConsumptionData(end,''End Date'')));'])
+                % Replace with dataset start date when selected start date is prior
+                app.date_filter.start = eval(['datetime(table2cell(app.dataset.customer_',num2str(numcustomer),'.EnergyConsumptionData(1,''Start Date'')));']);
+                eval(['app.dataset.customer_',num2str(numcustomer),'.date_filter.start = datetime(table2cell(app.dataset.customer_',num2str(numcustomer),'.EnergyConsumptionData(1,''Start Date'')));']);
+                app.StartDateDatePicker.Value = eval(['datetime(table2cell(app.dataset.customer_',num2str(numcustomer),'.EnergyConsumptionData(1,''Start Date'')));']);
+                msgbox('The selected date was replaced by the dataset start date as it is later than the end date.')
+            else
+                % If ok, accept selected value
+                app.date_filter.start = value;
+                eval(['app.dataset.customer_',num2str(numcustomer),'.date_filter.start = value;']);
+                app.StartDateDatePicker.Value = value;
+            end
+        end
+
+        % Value changed function: EndDateDatePicker
+        function EndDateDatePickerValueChanged(app, event)
+            value = app.EndDateDatePicker.Value;
+
+            % Get selected customeromer number
+            numcustomer = split(app.CustomerDropDown.Value, ' ');
+            numcustomer = numcustomer(end);
+            numcustomer = str2num(cell2mat(numcustomer));
+
+            % Check that the selected date is within the data range
+            if value < eval(['datetime(table2cell(app.dataset.customer_',num2str(numcustomer),'.EnergyConsumptionData(1,''Start Date'')));'])
+                % Replace with dataset end date when selected start date is prior
+                app.date_filter.end = eval(['datetime(table2cell(app.dataset.customer_',num2str(numcustomer),'.EnergyConsumptionData(1,''End Date'')));']);
+                eval(['app.dataset.customer_',num2str(numcustomer),'.date_filter.end = datetime(table2cell(app.dataset.customer_',num2str(numcustomer),'.EnergyConsumptionData(1,''End Date'')));']);
+                app.EndDateDatePicker.Value = eval(['datetime(table2cell(app.dataset.customer_',num2str(numcustomer),'.EnergyConsumptionData(1,''End Date'')));']);
+                msgbox('The selected date was replaced by the dataset end date as it is prior to it.')
+            elseif value > eval(['datetime(table2cell(app.dataset.customer_',num2str(numcustomer),'.EnergyConsumptionData(end,''End Date'')));'])
+                % Replace with dataset end date when selected start date is prior
+                app.date_filter.end = eval(['datetime(table2cell(app.dataset.customer_',num2str(numcustomer),'.EnergyConsumptionData(1,''End Date'')));']);
+                eval(['app.dataset.customer_',num2str(numcustomer),'.date_filter.end = datetime(table2cell(app.dataset.customer_',num2str(numcustomer),'.EnergyConsumptionData(1,''End Date'')));']);
+                app.EndDateDatePicker.Value = eval(['datetime(table2cell(app.dataset.customer_',num2str(numcustomer),'.EnergyConsumptionData(1,''End Date'')));']);
+                msgbox('The selected date was replaced by the dataset end date as it is later than the end date.')
+            else
+                % If ok, accept selected value
+                app.date_filter.end = value;
+                eval(['app.dataset.customer_',num2str(numcustomer),'.date_filter.end = value;']);
+                app.EndDateDatePicker.Value = value;
+            end
+        end
+
+        % Button pushed function: ApplyFilterButton
+        function ApplyFilterButtonPushed(app, event)
+            % Get selected customeromer number
+            numcustomer = split(app.CustomerDropDown.Value, ' ');
+            numcustomer = numcustomer(end);
+            numcustomer = str2num(cell2mat(numcustomer));
+            
+            % hold off "Load reconstruction" axis
+            hold(app.UIAxes_5,'off')
+
+            % Refine energy data
+            % Start
+            start = app.StartDateDatePicker.Value;
+            % Convert to dataset format
+            start.Format = 'yyyy-MM-dd';
+            start_range = eval(['cellfun(@(x) strfind(x,datestr(start,''yyyy-mm-dd'')),table2cell(app.dataset.customer_',num2str(numcustomer),'.EnergyConsumptionData(:,{''Start Date''})),''UniformOutput'',false);']);
+            cnt = 1; scan_end = 0;
+            while (cnt <length(start_range) && scan_end == 0)
+                if ~isempty(start_range{cnt})
+                    start_range_ind = cnt;
+                    scan_end = 1;
+                end
+                cnt = cnt + 1;
+            end
+            eval(['app.dataset.customer_',num2str(numcustomer),'.date_filter.startIndex = start_range_ind;']);
+
+            % End
+            End = app.EndDateDatePicker.Value;
+            % Convert to dataset format
+            End.Format = 'yyyy-MM-dd';
+            end_range = eval(['cellfun(@(x) strfind(x,datestr(End,''yyyy-mm-dd'')),table2cell(app.dataset.customer_',num2str(numcustomer),'.EnergyConsumptionData(:,{''End Date''})),''UniformOutput'',false);']);
+            cnt = 1; scan_end = 0;
+            while (cnt <length(end_range) && scan_end == 0)
+                if ~isempty(end_range{cnt})
+                    end_range_ind = cnt;
+                    scan_end = 1;
+                end
+                cnt = cnt + 1;
+            end
+            eval(['app.dataset.customer_',num2str(numcustomer),'.date_filter.endIndex = end_range_ind;']);
+
+            % Plot graphes on truncated axes
+            % Breakpoints
+            xpts = eval(['1:length(table2array(app.dataset.customer_',num2str(numcustomer),'.EnergyConsumptionData(',num2str(start_range_ind),':',num2str(end_range_ind),',{''Start Time''})));']);
+            xnames_D = eval(['table2cell(app.dataset.customer_',num2str(numcustomer),'.EnergyConsumptionData(',num2str(start_range_ind),':',num2str(end_range_ind),',{''Start Date''}));']);
+            xnames_H = eval(['table2cell(app.dataset.customer_',num2str(numcustomer),'.EnergyConsumptionData(',num2str(start_range_ind),':',num2str(end_range_ind),',{''Start Time''}));']);
+            xnames_H_short=xnames_H(1:10:length(xnames_H));
+            xnames_D_short=xnames_D(1:10:length(xnames_D));
+
+            % Energy plot on truncated axes
+            energy_ypts = eval(['table2array(app.dataset.customer_',num2str(numcustomer),'.EnergyConsumptionData(',num2str(start_range_ind),':',num2str(end_range_ind),',{''Consumption''}));']);
+            plot(app.EnergyConsAxis,xpts,energy_ypts);
+            plot(app.UIAxes_5,xpts,energy_ypts);
+            xlabel(app.EnergyConsAxis,'Time of the day'); 
+            xlabel(app.UIAxes_5,'Time of the day');
+            ylabel(app.EnergyConsAxis,'Energy consumed');
+            ylabel(app.UIAxes_5,'Energy consumed');
+            xticks(app.EnergyConsAxis,[1:10:length(xnames_D)]);
+            xticks(app.UIAxes_5,[1:10:length(xnames_D)]);
+            xticklabels(app.EnergyConsAxis,cellfun(@(x1,x2) [x1,' - ',x2],xnames_D_short,xnames_H_short,'UniformOutput',false));
+            xticklabels(app.UIAxes_5,cellfun(@(x1,x2) [x1,' - ',x2],xnames_D_short,xnames_H_short,'UniformOutput',false));
+            xtickangle(app.EnergyConsAxis,45);
+            xtickangle(app.UIAxes_5,45);
+
+            % Configure Slider for truncated axes
+            app.Slider.Limits = [0 length(energy_ypts)];
+            app.winwidth = 20;
+            % Hold on "Load reconstruction" axis
+            hold(app.UIAxes_5,'on')
+            h = polyshape([0 0 app.winwidth app.winwidth],[0 app.winheight app.winheight 0]);
+            app.zoomedinwindow = plot(app.UIAxes_5,h,'FaceColor','r','FaceAlpha',0.1,'LineWidth',0.1);
+
+            % Filter table data
+            variablenames = eval(['app.dataset.customer_',num2str(numcustomer),'.EnergyConsumptionData.Properties.VariableNames;']);
+            app.EnergyConsTabl.Data = eval(['table2cell(app.dataset.customer_',num2str(numcustomer),'.EnergyConsumptionData(',num2str(start_range_ind),':',num2str(end_range_ind),',variablenames));']);
+            
+            app.CompleteDataLabel.Text = 'Truncated data';
+
+            % Calculate average consumption
+            app.AveragekWh.Text = [num2str(mean(energy_ypts)),' kWh'];
+
+            % Calculate maximum consumption
+            app.MaxkWh.Text = [num2str(max(energy_ypts)),' kWh'];
+        end
+
+        % Button pushed function: ResetButton
+        function ResetButtonPushed(app, event)
+            % Get selected customeromer number
+            numcustomer = split(app.CustomerDropDown.Value, ' ');
+            numcustomer = numcustomer(end);
+            numcustomer = str2num(cell2mat(numcustomer));
+
+            % Hold on "Load reconstruction" axis
+            hold(app.UIAxes_5,'off')
+            
+            % Plot graphs
+            % Breakpoints
+            xpts = eval(['1:length(table2array(app.dataset.customer_',num2str(numcustomer),'.EnergyConsumptionData(:,{''Start Date''})))']);
+            xnames = eval(['table2cell(app.dataset.customer_',num2str(numcustomer),'.EnergyConsumptionData(:,{''Start Date''}))']);
+
+            % Energy plot
+            energy_ypts = eval(['table2array(app.dataset.customer_',num2str(numcustomer),'.EnergyConsumptionData(:,{''Consumption''}))']);
+            plot(app.EnergyConsAxis,xpts,energy_ypts)
+            plot(app.UIAxes_5,xpts,energy_ypts)
+            xlabel(app.EnergyConsAxis,'Time of the day');
+            xlabel(app.UIAxes_5,'Time of the day');
+            ylabel(app.EnergyConsAxis,'Energy consumed');
+            ylabel(app.UIAxes_5,'Energy consumed');
+            xticks(app.EnergyConsAxis,[0:round(length(energy_ypts)/10):length(energy_ypts)]);
+            xticks(app.UIAxes_5,[0:round(length(energy_ypts)/10):length(energy_ypts)]);
+            xticklabels(app.EnergyConsAxis,[0:round(length(energy_ypts)/10):length(energy_ypts)]);
+            xticklabels(app.UIAxes_5,[0:round(length(energy_ypts)/10):length(energy_ypts)]);
+            app.EnergyConsAxis.XTickLabelMode = 'auto';
+            app.UIAxes_5.XTickLabelMode = 'auto';
+
+            % Configure Slider
+            app.Slider.Limits = [0 length(energy_ypts)];
+            app.winwidth = 100;
+            app.Slider.Value = 0;
+
+            % Truncated stem plot 
+            % Breakpoints
+            xpts = eval(['1:length(table2array(app.dataset.customer_',num2str(numcustomer),'.EnergyConsumptionData(',num2str(app.Slider.Value+1),':',num2str(app.winwidth),',{''Start Time''})))']);
+            xnames_D = eval(['table2cell(app.dataset.customer_',num2str(numcustomer),'.EnergyConsumptionData(',num2str(app.Slider.Value+1),':',num2str(app.winwidth),',{''Start Date''}))']);
+            xnames_H = eval(['table2cell(app.dataset.customer_',num2str(numcustomer),'.EnergyConsumptionData(',num2str(app.Slider.Value+1),':',num2str(app.winwidth),',{''Start Time''}))']);
+            
+            % Energy plot
+            energy_ypts = eval(['table2array(app.dataset.customer_',num2str(numcustomer),'.EnergyConsumptionData(',num2str(app.Slider.Value+1),':',num2str(app.winwidth),',{''Consumption''}))']);
+            stem(app.UIAxes_6,xpts,energy_ypts,'color',[1.00,0.41,0.16])
+            xlabel(app.UIAxes_6,'Time of the day')
+            ylabel(app.UIAxes_6,'Energy consumed')
+            xticks(app.UIAxes_6,[1:length(xpts)])
+            xticklabels(app.UIAxes_6,cellfun(@(x1,x2) [x1,' - ',x2],xnames_D,xnames_H,'UniformOutput',false))
+            xtickangle(app.UIAxes_6,45);
+
+            % Hold on "Load reconstruction" axis
+            hold(app.UIAxes_5,'on')
+            h = polyshape([0 0 app.winwidth app.winwidth],[0 app.winheight app.winheight 0]);
+            app.zoomedinwindow = plot(app.UIAxes_5,h,'FaceColor','r','FaceAlpha',0.1,'LineWidth',0.1);
+
+            % Reset table data
+            variablenames = eval(['app.dataset.customer_',num2str(numcustomer),'.EnergyConsumptionData.Properties.VariableNames;']);
+            app.EnergyConsTabl.Data = eval(['table2cell(app.dataset.customer_',num2str(numcustomer),'.EnergyConsumptionData(:,variablenames))']);
+
+            % Reset filter indices
+            eval(['app.dataset.customer_',num2str(numcustomer),'.date_filter.startIndex = 1']);
+            eval(['app.dataset.customer_',num2str(numcustomer),'.date_filter.endIndex = length(table2array(app.dataset.customer_',num2str(numcustomer),'.EnergyConsumptionData(:,{''Start Date''})))']);
+
+            app.CompleteDataLabel.Text = 'Complete data';
+
+            % Calculate average consumption
+            app.AveragekWh.Text = [num2str(mean(energy_ypts)),' kWh'];
+
+            % Calculate maximum consumption
+            app.MaxkWh.Text = [num2str(max(energy_ypts)),' kWh'];
+        end
+
+        % Button pushed function: ReconstructPowerProfileButton
+        function ReconstructPowerProfileButtonPushed(app, event)
+            % Get selected customeromer number
+            numcustomer = split(app.CustomerDropDown.Value, ' ');
+            numcustomer = numcustomer(end);
+            numcustomer = str2num(cell2mat(numcustomer));
+
+            % Get filter values
+            eval(['filter_startIndex = app.dataset.customer_',num2str(numcustomer),'.date_filter.startIndex']);
+            eval(['filter_endIndex = app.dataset.customer_',num2str(numcustomer),'.date_filter.endIndex']);
+
+            % appliance list
+            colnames_appl = {'EV','Dishwash','WashMach','AirFryer','InducHob','Oven','Fridge','TV','Kettle'};     
+
+            % Get dataset start date and time (accounting for date filter)
+            startDate = eval(['table2cell(app.dataset.customer_',num2str(numcustomer),'.EnergyConsumptionData(',num2str(filter_startIndex),',{''Start Date''}))']);
+            startTime = eval(['table2cell(app.dataset.customer_',num2str(numcustomer),'.EnergyConsumptionData(',num2str(filter_startIndex),',{''Start Time''}))']);
+            % Merge start and end date and time
+            startDateTime = [startDate{:},' ',startTime{:}];
+            % Convert to datetime
+            startDateTime = datetime(startDateTime,'Format','yyyy-MM-dd HH:mm:ss');
+
+            % Get dataset end date and time (accounting for date filter)
+            endDate = eval(['table2cell(app.dataset.customer_',num2str(numcustomer),'.EnergyConsumptionData(',num2str(filter_endIndex),',{''End Date''}))']);
+            endTime = eval(['table2cell(app.dataset.customer_',num2str(numcustomer),'.EnergyConsumptionData(',num2str(filter_endIndex),',{''End Time''}))']);
+            % Merge start and end date and time
+            endDateTime = [endDate{:},' ',endTime{:}];
+            % Convert to datetime
+            endDateTime = datetime(endDateTime,'Format','yyyy-MM-dd HH:mm:ss');
+            
+            cnt_date = 1; bufDateTime = startDateTime; datetemptabl = startDate; timetemptabl = startTime;
+            while bufDateTime ~= endDateTime %datetime('2024-01-15 00:00:00')   %%%%HARD CODED%%%%
+                % Increment by 1 minute
+                bufDateTime = bufDateTime+minutes(1)
+                [time,day]=timeofday(datetime(bufDateTime));
+                % Populate date column
+                datetemptabl = [datetemptabl; day];
+                % Populate time column
+                timetemptabl = [timetemptabl;time];
+                cnt_date = cnt_date + 1;
+            end
+
+            % Reconstruced table creation
+            variablenames = app.EnergyConsTabl.ColumnName;
+            eval(['app.dataset.customer_',num2str(numcustomer),'.ReconstructedProf=table(''Size'',[length(datetemptabl),length(colnames_appl)+2],''VariableTypes'',[''datetime'',''duration'',repmat({''double''},1,length(colnames_appl))]);']);
+            eval(['app.dataset.customer_',num2str(numcustomer),'.ReconstructedProf.Properties.VariableNames=[variablenames(2:3)'' colnames_appl];']);
+            eval(['app.dataset.customer_',num2str(numcustomer),'.ReconstructedProf(:,''Start Date'') = table(datetemptabl);']);
+            eval(['app.dataset.customer_',num2str(numcustomer),'.ReconstructedProf(:,''Start Time'') = table(timetemptabl);']);
+            eval(['bufRcnstrcuttabl=app.dataset.customer_',num2str(numcustomer),'.ReconstructedProf;'])
+            app.ReconstructedTabl.Data = table('Size',[length(datetemptabl),length(colnames_appl)+2],'VariableTypes',['datetime','duration',repmat({'double'},1,length(colnames_appl))]);
+            app.ReconstructedTabl.ColumnName = [variablenames(2:3)' colnames_appl];
+            datetemptabl.Format='yyyy-MM-dd';
+            app.ReconstructedTabl.Data(:,1) = table(datetemptabl);
+            app.ReconstructedTabl.Data(:,2) = table(timetemptabl);
+
+            % Search all appliance tables
+            energy_data = eval(['table2array(app.dataset.customer_',num2str(numcustomer),'.EnergyConsumptionData(',num2str(filter_startIndex),':',num2str(filter_endIndex),',{''Consumption''}));']);
+            % Data processing
+            for cnt = 1 : length(energy_data)
+                cnt
+                % Get the date & time of occurrence
+                dayofocc = eval(['table2cell(app.dataset.customer_',num2str(numcustomer),'.EnergyConsumptionData(',num2str(filter_startIndex+cnt-1),',{''Start Date''}))']);
+                [dayofocc_H,dayofocc_D]=timeofday(datetime(dayofocc));
+                timeofocc = eval(['table2cell(app.dataset.customer_',num2str(numcustomer),'.EnergyConsumptionData(',num2str(filter_startIndex+cnt-1),',{''Start Time''}))']);
+                [timeofocc_H,timeofocc_D]=timeofday(datetime(timeofocc));
+                % search one table at the time
+                for cnt1 = 1 : length(colnames_appl)
+                    % Check if appliance is likely to be ON
+                    if eval(['any(find(table2array(app.dataset.customer_',num2str(numcustomer),'.TimeTabl(colnames_appl{1},:)))==hours(timeofocc_H))'])
+                        % Check if table empty
+                        if ~isempty(eval(['app.',colnames_appl{cnt1},'Tabl.Data;']))
+                            % if not, get table data
+                            table_data = eval(['app.',colnames_appl{cnt1},'Tabl.Data;']);
+                            tabl_size = size(table_data);
+                            % Search for matching value
+                            % Row count
+                            for i = 1 : tabl_size(1)
+                                i
+                                % Column count
+                                for j = 1 : tabl_size(2)
+                                    %  Check the delta between the consumption value and table value. If it is lower than a certain value then good!
+                                    if ((abs(energy_data(cnt) - table2array(table_data(i,j)))) < 0.002) && (table2array(table_data(i,j))~=0)
+                                        j
+                                        % Get cycle
+                                        eval(['prog_name = app.',colnames_appl{cnt1},'Tabl.RowName(',num2str(i),');'])
+                                        % Get phase
+                                        eval(['phase_num = app.',colnames_appl{cnt1},'Tabl.ColumnName(',num2str(j),');'])
+                                        % Get power profile from appliance table
+                                        applcycprofiletab =  eval(['app.dataset.customer_',num2str(numcustomer),'.',colnames_appl{cnt1},'_',erase(prog_name{:},' '),'_PwrProf;']);
+                                        % Get power profile from appliance table
+                                        applcycprofile =  eval(['table2array(applcycprofiletab(:,''Power(kW)''));']);
+                                        % Find corresponding phase indice
+                                        pat = phase_num;
+                                        % Find the rows corresponding to the phase
+                                        phaserow = cellfun(@(x) strcmp(x,pat),table2cell(applcycprofiletab(:,'Phase')),'UniformOutput',false);
+                                        % Find the corresponding indices
+                                        phaseidx = find(cell2mat(phaserow));
+                                        % Find index corresponding to the date and time of occurrence
+                                        % Find date to write in
+                                        bufRcnstrcuttabl_D = table2cell(bufRcnstrcuttabl(:,'Start Date'));
+                                        daterow = cellfun(@(x) x==dayofocc_D,bufRcnstrcuttabl_D,'UniformOutput',false);
+                                        % Find time to write in
+                                        bufRcnstrcuttabl_H = table2cell(bufRcnstrcuttabl(:,'Start Time'));
+                                        timerow = cellfun(@(x) x==timeofocc_H,bufRcnstrcuttabl_H,'UniformOutput',false);
+                                        % Find row index of reference to write the appliance profile
+                                        datetimerow = cellfun(@(x1,x2) x1&&x2, daterow,timerow,'UniformOutput',false);
+                                        datetime_idx = find(cell2mat(datetimerow));
+                                        % Place the power profile in the reconstrusted table
+                                        idx_diff = datetime_idx(1)-phaseidx(1);
+                                        if idx_diff < 0
+                                            proftowrite = applcycprofile(abs(idx_diff):end);
+                                            bufRcnstrcuttabl(max(1,idx_diff):length(proftowrite),colnames_appl{cnt1}) = table(proftowrite);
+                                        else
+                                            bufRcnstrcuttabl(idx_diff:idx_diff+length(applcycprofile)-1,colnames_appl{cnt1}) = table(applcycprofile);
+                                        end
+                                    end
+                                end
+                            end
+                        end
+                    end
+                end
+            end 
+            % Populate GUI
+            eval(['app.dataset.customer_',num2str(numcustomer),'.ReconstructedProf=bufRcnstrcuttabl;'])
+            eval(['app.dataset.customer_',num2str(numcustomer),'.ReconstructedTabl.Data=bufRcnstrcuttabl;'])
+            
+            % Breakpoints
+            xnames_D = eval(['table2cell(app.dataset.customer_',num2str(numcustomer),'.ReconstructedTabl.Data(:,{''Start Date''}))']);
+            xnames_H = eval(['table2cell(app.dataset.customer_',num2str(numcustomer),'.ReconstructedTabl.Data(:,{''Start Time''}))']);
+
+            % Draw reconstructed appliance profiles
+            for cnt = 1 : length(colnames_appl)
+                plot(app.ReconstructedAxis,[1:height(bufRcnstrcuttabl(:,colnames_appl{cnt}))],table2array(bufRcnstrcuttabl(:,colnames_appl{cnt})))
+                hold(app.ReconstructedAxis,'on')
+            end
+            legend(app.ReconstructedAxis,colnames_appl)
+            xlabel(app.ReconstructedAxis,'Time(mn)')
+            ylabel(app.ReconstructedAxis,'Power(kW)')
+            xnames_pwr_H_short=xnames_H(1:360:length(xnames_H));
+            xnames_pwr_D_short=xnames_D(1:360:length(xnames_D));
+            xticks(app.ReconstructedAxis,[1:360:length(xnames_H)]);
+            xticklabels(app.ReconstructedAxis,cellfun(@(x1,x2) [datestr(x1,'dd/mm/yy'),' - ',datestr(x2,'hh:mm')],xnames_pwr_D_short,xnames_pwr_H_short,'UniformOutput',false));
+            xtickangle(app.ReconstructedAxis,45);
+
+            % Plot energy consumption distribution
+            colnames_appl_disp = {'EV','Dishwasher','Washing Machine','Air Fryer','Hob','Oven','Fridge','TV','Kettle'};
+            explode = ones(1,length(colnames_appl_disp));
+            pie3(app.ReconstructedPie,sum(table2array(bufRcnstrcuttabl(:,colnames_appl))),explode,colnames_appl_disp);
+
+            % Reconstructed energy profile against actual energy consumption
+            recns_power_data = table2array(bufRcnstrcuttabl(:,3:end));
+            recns_energy_data = []; i=1;
+            for cnt_data = 1:30:length(recns_power_data(:,1))-30
+                recns_energy_data(i,:) = trapz(recns_power_data(cnt_data:cnt_data+29,:),1)/60;
+                i = i + 1;
+            end
+            recns_energy_data_allappl = sum(recns_energy_data,2);
+            plot(app.CompareReconstructedAxis,energy_data)
+            hold(app.CompareReconstructedAxis,'on')
+            plot(app.CompareReconstructedAxis,recns_energy_data_allappl)
+            legend(app.CompareReconstructedAxis,{'Original  consumption',['Reconstructed consumption']})
+            xlabel(app.CompareReconstructedAxis,'Time(mn)')
+            ylabel(app.CompareReconstructedAxis,'Energy(kWh)')
+            xnames_D_enrgy = eval(['table2cell(app.dataset.customer_',num2str(numcustomer),'.EnergyConsumptionData(',num2str(filter_startIndex),':',num2str(filter_endIndex),',{''Start Date''}))']);
+            xnames_H_enrgy = eval(['table2cell(app.dataset.customer_',num2str(numcustomer),'.EnergyConsumptionData(',num2str(filter_startIndex),':',num2str(filter_endIndex),',{''Start Time''}))']);
+            xnames_enrgy_H_short=xnames_H_enrgy(1:12:length(xnames_H_enrgy));
+            xnames_enrgy_D_short=xnames_D_enrgy(1:12:length(xnames_D_enrgy));
+            xticks(app.CompareReconstructedAxis,[1:12:length(xnames_H_enrgy)]);
+            xticklabels(app.CompareReconstructedAxis,cellfun(@(x1,x2) [datestr(x1,'dd/mm/yy'),' - ',datestr(x2,'hh:mm')],xnames_enrgy_D_short,xnames_enrgy_H_short,'UniformOutput',false));
+            xtickangle(app.CompareReconstructedAxis,45);
+        end
+
+        % Value changed function: Slider
+        function SliderValueChanged(app, event)
+            % Get selected customeromer number
+            numcustomer = split(app.CustomerDropDown.Value, ' ');
+            numcustomer = numcustomer(end);
+            numcustomer = str2num(cell2mat(numcustomer));
+
+            % Get filter values
+            eval(['filter_startIndex = app.dataset.customer_',num2str(numcustomer),'.date_filter.startIndex;']);
+            eval(['filter_endIndex = app.dataset.customer_',num2str(numcustomer),'.date_filter.endIndex;']);
+            
+            % Get slide value
+            newvalue = event.Value;
+
+            % Delete existing window
+            delete(app.zoomedinwindow)
+
+            % Shifting moving window on plot
+            h = polyshape([newvalue-(app.winwidth/2) newvalue-(app.winwidth/2) newvalue+(app.winwidth/2) newvalue+(app.winwidth/2)],[0 app.winheight app.winheight 0]);
+            app.zoomedinwindow = plot(app.UIAxes_5,h,'FaceColor','r','FaceAlpha',0.1,'LineWidth',0.1);
+            
+            % Get data range (start and end)
+            startdate = eval(['table2array(app.dataset.customer_',num2str(numcustomer),'.EnergyConsumptionData(',num2str(round(filter_startIndex+newvalue-(app.winwidth/2))),',{''Start Date''}));']);
+            starttime = eval(['table2array(app.dataset.customer_',num2str(numcustomer),'.EnergyConsumptionData(',num2str(round(filter_startIndex+newvalue-(app.winwidth/2))),',{''Start Time''}));']);
+            start = [startdate{:},' ',starttime{:}];
+            start = datetime(start,'Format','yyyy-MM-dd HH:mm:ss');
+            Enddate = eval(['table2array(app.dataset.customer_',num2str(numcustomer),'.EnergyConsumptionData(',num2str(round(filter_startIndex+newvalue+(app.winwidth/2))),',{''End Date''}));']);
+            Endtime = eval(['table2array(app.dataset.customer_',num2str(numcustomer),'.EnergyConsumptionData(',num2str(round(filter_startIndex+newvalue+(app.winwidth/2))),',{''End Time''}));']);
+            End = [Enddate{:},' ',Endtime{:}];
+            End = datetime(End,'Format','yyyy-MM-dd HH:mm:ss');
+
+            % Filter data
+            [start_range_ind,end_range_ind] = data_filtering(app,numcustomer,start,End);
+
+            % Plot graphs
+            % Breakpoints
+            xpts = eval(['1:length(table2array(app.dataset.customer_',num2str(numcustomer),'.EnergyConsumptionData(',num2str(start_range_ind),':',num2str(end_range_ind),',{''Start Time''})));']);
+            xnames_D = eval(['table2cell(app.dataset.customer_',num2str(numcustomer),'.EnergyConsumptionData(',num2str(start_range_ind),':',num2str(end_range_ind),',{''Start Date''}));']);
+            xnames_H = eval(['table2cell(app.dataset.customer_',num2str(numcustomer),'.EnergyConsumptionData(',num2str(start_range_ind),':',num2str(end_range_ind),',{''Start Time''}));']);
+            
+            % Energy plot
+            energy_ypts = eval(['table2array(app.dataset.customer_',num2str(numcustomer),'.EnergyConsumptionData(',num2str(start_range_ind),':',num2str(end_range_ind),',{''Consumption''}));']);
+            stem(app.UIAxes_6,xpts,energy_ypts,'color',[1.00,0.41,0.16])
+            xlabel(app.UIAxes_6,'Time of the day')
+            ylabel(app.UIAxes_6,'Energy consumed')
+            xticks(app.UIAxes_6,[1:length(xpts)])
+            xticklabels(app.UIAxes_6,cellfun(@(x1,x2) [x1,' - ',x2],xnames_D,xnames_H,'UniformOutput',false))
+            xtickangle(app.UIAxes_6,45);     
+        end
+    end
+
+    % Component initialization
+    methods (Access = private)
+
+        % Create UIFigure and components
+        function createComponents(app)
+
+            % Create UIFigure and hide until all components are created
+            app.UIFigure = uifigure('Visible', 'off');
+            app.UIFigure.Color = [0.2 0.4392 0.6118];
+            app.UIFigure.Position = [100 100 1173 824];
+            app.UIFigure.Name = 'MATLAB App';
+
+            % Create TabGroup
+            app.TabGroup = uitabgroup(app.UIFigure);
+            app.TabGroup.Position = [344 30 797 774];
+
+            % Create EnergyConsumptionTab
+            app.EnergyConsumptionTab = uitab(app.TabGroup);
+            app.EnergyConsumptionTab.Title = 'Energy Consumption';
+            app.EnergyConsumptionTab.BackgroundColor = [0.9412 0.9412 0.9412];
+            app.EnergyConsumptionTab.ForegroundColor = [0.2706 0.3686 0.4314];
+
+            % Create EnergyConsAxis
+            app.EnergyConsAxis = uiaxes(app.EnergyConsumptionTab);
+            title(app.EnergyConsAxis, 'Energy Consumption')
+            xlabel(app.EnergyConsAxis, 'Time of the day')
+            ylabel(app.EnergyConsAxis, 'Energy (kWh)')
+            zlabel(app.EnergyConsAxis, 'Z')
+            app.EnergyConsAxis.Position = [38 422 723 304];
+
+            % Create EnergyConsTabl
+            app.EnergyConsTabl = uitable(app.EnergyConsumptionTab);
+            app.EnergyConsTabl.BackgroundColor = [1 0.4118 0.1608;0.9412 0.9412 0.9412];
+            app.EnergyConsTabl.ColumnName = {'Column 1'; 'Column 2'; 'Column 3'; 'Column 4'};
+            app.EnergyConsTabl.RowName = {};
+            app.EnergyConsTabl.Position = [307 76 451 281];
+
+            % Create CompleteDataLabel
+            app.CompleteDataLabel = uilabel(app.EnergyConsumptionTab);
+            app.CompleteDataLabel.BackgroundColor = [0.9412 0.9412 0.9412];
+            app.CompleteDataLabel.FontSize = 14;
+            app.CompleteDataLabel.FontWeight = 'bold';
+            app.CompleteDataLabel.FontColor = [0.149 0.149 0.149];
+            app.CompleteDataLabel.Position = [42 335 241 22];
+            app.CompleteDataLabel.Text = 'Complete Data';
+
+            % Create AverageenergyconsumptionLabel
+            app.AverageenergyconsumptionLabel = uilabel(app.EnergyConsumptionTab);
+            app.AverageenergyconsumptionLabel.BackgroundColor = [0.502 0.502 0.502];
+            app.AverageenergyconsumptionLabel.Position = [43 288 241 22];
+            app.AverageenergyconsumptionLabel.Text = 'Average energy consumption';
+
+            % Create AveragekWh
+            app.AveragekWh = uilabel(app.EnergyConsumptionTab);
+            app.AveragekWh.BackgroundColor = [0.902 0.902 0.902];
+            app.AveragekWh.Position = [44 258 241 22];
+            app.AveragekWh.Text = '-- kWh';
+
+            % Create MaximumenergyconsumptionLabel
+            app.MaximumenergyconsumptionLabel = uilabel(app.EnergyConsumptionTab);
+            app.MaximumenergyconsumptionLabel.BackgroundColor = [0.502 0.502 0.502];
+            app.MaximumenergyconsumptionLabel.Position = [43 214 241 22];
+            app.MaximumenergyconsumptionLabel.Text = 'Maximum energy consumption';
+
+            % Create MaxkWh
+            app.MaxkWh = uilabel(app.EnergyConsumptionTab);
+            app.MaxkWh.BackgroundColor = [0.902 0.902 0.902];
+            app.MaxkWh.Position = [44 184 241 22];
+            app.MaxkWh.Text = '-- kWh';
+
+            % Create EnergyAnalysisTab
+            app.EnergyAnalysisTab = uitab(app.TabGroup);
+            app.EnergyAnalysisTab.Title = 'Energy Analysis';
+            app.EnergyAnalysisTab.BackgroundColor = [0.9412 0.9412 0.9412];
+            app.EnergyAnalysisTab.ForegroundColor = [0.2706 0.3686 0.4314];
+
+            % Create UIAxes_5
+            app.UIAxes_5 = uiaxes(app.EnergyAnalysisTab);
+            title(app.UIAxes_5, 'Energy Consumption')
+            xlabel(app.UIAxes_5, 'Time of the day')
+            ylabel(app.UIAxes_5, 'Energy (kWh)')
+            zlabel(app.UIAxes_5, 'Z')
+            app.UIAxes_5.FontWeight = 'bold';
+            app.UIAxes_5.FontSize = 12;
+            app.UIAxes_5.Position = [38 443 713 283];
+
+            % Create UIAxes_6
+            app.UIAxes_6 = uiaxes(app.EnergyAnalysisTab);
+            title(app.UIAxes_6, 'Zoomed-In Area')
+            xlabel(app.UIAxes_6, 'Time of the day')
+            ylabel(app.UIAxes_6, 'Energy (kWh)')
+            zlabel(app.UIAxes_6, 'Z')
+            app.UIAxes_6.Position = [39 61 712 286];
+
+            % Create SliderLabel
+            app.SliderLabel = uilabel(app.EnergyAnalysisTab);
+            app.SliderLabel.HorizontalAlignment = 'right';
+            app.SliderLabel.Position = [25 401 36 22];
+            app.SliderLabel.Text = 'Slider';
+
+            % Create Slider
+            app.Slider = uislider(app.EnergyAnalysisTab);
+            app.Slider.MajorTickLabels = {''};
+            app.Slider.ValueChangedFcn = createCallbackFcn(app, @SliderValueChanged, true);
+            app.Slider.Position = [82 410 663 3];
+
+            % Create LoadReconstructionTab_2
+            app.LoadReconstructionTab_2 = uitab(app.TabGroup);
+            app.LoadReconstructionTab_2.Title = 'Load Reconstruction';
+            app.LoadReconstructionTab_2.ForegroundColor = [0.2706 0.3686 0.4314];
+
+            % Create ReconstructedAxis
+            app.ReconstructedAxis = uiaxes(app.LoadReconstructionTab_2);
+            title(app.ReconstructedAxis, 'Reconstructed Energy Consumption')
+            xlabel(app.ReconstructedAxis, 'Time of the day')
+            ylabel(app.ReconstructedAxis, 'Energy (kWh)')
+            zlabel(app.ReconstructedAxis, 'Z')
+            app.ReconstructedAxis.Position = [354 409 433 304];
+
+            % Create ReconstructedPie
+            app.ReconstructedPie = uiaxes(app.LoadReconstructionTab_2);
+            title(app.ReconstructedPie, 'Appliances time of use - Pie Chart')
+            xlabel(app.ReconstructedPie, 'Time of the day')
+            ylabel(app.ReconstructedPie, 'Energy (kWh)')
+            zlabel(app.ReconstructedPie, 'Z')
+            app.ReconstructedPie.Position = [30 99 285 269];
+
+            % Create CompareReconstructedAxis
+            app.CompareReconstructedAxis = uiaxes(app.LoadReconstructionTab_2);
+            title(app.CompareReconstructedAxis, 'Reconstructed Energy Consumption Vs Target')
+            xlabel(app.CompareReconstructedAxis, 'X')
+            ylabel(app.CompareReconstructedAxis, 'Y')
+            zlabel(app.CompareReconstructedAxis, 'Z')
+            app.CompareReconstructedAxis.Position = [354 61 433 307];
+
+            % Create ReconstructedTabl
+            app.ReconstructedTabl = uitable(app.LoadReconstructionTab_2);
+            app.ReconstructedTabl.BackgroundColor = [1 0.4118 0.1608;0.9412 0.9412 0.9412];
+            app.ReconstructedTabl.ColumnName = {'Column 1'; 'Column 2'; 'Column 3'; 'Column 4'};
+            app.ReconstructedTabl.RowName = {};
+            app.ReconstructedTabl.Position = [30 422 285 281];
+
+            % Create HomeSignature1Tab
+            app.HomeSignature1Tab = uitab(app.TabGroup);
+            app.HomeSignature1Tab.Title = 'Home Signature 1';
+            app.HomeSignature1Tab.ForegroundColor = [0.2706 0.3686 0.4314];
+
+            % Create EVAxis
+            app.EVAxis = uiaxes(app.HomeSignature1Tab);
+            title(app.EVAxis, 'Electric Vehicle')
+            xlabel(app.EVAxis, 'Time (s)')
+            ylabel(app.EVAxis, 'Power Profile (W)')
+            zlabel(app.EVAxis, 'Z')
+            app.EVAxis.Position = [39 535 276 178];
+
+            % Create DishwashAxis
+            app.DishwashAxis = uiaxes(app.HomeSignature1Tab);
+            title(app.DishwashAxis, 'Dishwasher')
+            xlabel(app.DishwashAxis, 'Time (s)')
+            ylabel(app.DishwashAxis, 'Power Profile (W)')
+            zlabel(app.DishwashAxis, 'Z')
+            app.DishwashAxis.Position = [40 306 275 176];
+
+            % Create WashMachAxis
+            app.WashMachAxis = uiaxes(app.HomeSignature1Tab);
+            title(app.WashMachAxis, 'Washing Machine')
+            xlabel(app.WashMachAxis, 'Time (s)')
+            ylabel(app.WashMachAxis, 'Power Profile (W)')
+            zlabel(app.WashMachAxis, 'Z')
+            app.WashMachAxis.Position = [41 63 274 176];
+
+            % Create EVTabl
+            app.EVTabl = uitable(app.HomeSignature1Tab);
+            app.EVTabl.ColumnName = {'Feature'; 'Value'};
+            app.EVTabl.RowName = {};
+            app.EVTabl.Position = [354 535 404 176];
+
+            % Create DishwashTabl
+            app.DishwashTabl = uitable(app.HomeSignature1Tab);
+            app.DishwashTabl.ColumnName = {'Feature'; 'Value'};
+            app.DishwashTabl.RowName = {};
+            app.DishwashTabl.Position = [354 306 420 176];
+
+            % Create WashMachTabl
+            app.WashMachTabl = uitable(app.HomeSignature1Tab);
+            app.WashMachTabl.ColumnName = {'Feature'; 'Value'};
+            app.WashMachTabl.RowName = {};
+            app.WashMachTabl.Position = [353 63 422 176];
+
+            % Create HomeSignature2Tab
+            app.HomeSignature2Tab = uitab(app.TabGroup);
+            app.HomeSignature2Tab.Title = 'Home Signature 2';
+            app.HomeSignature2Tab.ForegroundColor = [0.2706 0.3686 0.4314];
+
+            % Create AirFryerAxis
+            app.AirFryerAxis = uiaxes(app.HomeSignature2Tab);
+            title(app.AirFryerAxis, 'AirFryer')
+            xlabel(app.AirFryerAxis, 'Time (s)')
+            ylabel(app.AirFryerAxis, 'Power Profile (W)')
+            zlabel(app.AirFryerAxis, 'Z')
+            app.AirFryerAxis.Position = [39 535 276 178];
+
+            % Create InducHobAxis
+            app.InducHobAxis = uiaxes(app.HomeSignature2Tab);
+            title(app.InducHobAxis, 'Induction Hob')
+            xlabel(app.InducHobAxis, 'Time (s)')
+            ylabel(app.InducHobAxis, 'Power Profile (W)')
+            zlabel(app.InducHobAxis, 'Z')
+            app.InducHobAxis.Position = [40 306 275 176];
+
+            % Create OvenAxis
+            app.OvenAxis = uiaxes(app.HomeSignature2Tab);
+            title(app.OvenAxis, 'Oven')
+            xlabel(app.OvenAxis, 'Time (s)')
+            ylabel(app.OvenAxis, 'Power Profile (W)')
+            zlabel(app.OvenAxis, 'Z')
+            app.OvenAxis.Position = [41 63 274 176];
+
+            % Create AirFryerTabl
+            app.AirFryerTabl = uitable(app.HomeSignature2Tab);
+            app.AirFryerTabl.BackgroundColor = [1 1 1;0.9412 0.9412 0.9412];
+            app.AirFryerTabl.ColumnName = {'Feature'; 'Value'};
+            app.AirFryerTabl.RowName = {};
+            app.AirFryerTabl.Position = [354 537 420 176];
+
+            % Create InducHobTabl
+            app.InducHobTabl = uitable(app.HomeSignature2Tab);
+            app.InducHobTabl.ColumnName = {'Feature'; 'Value'};
+            app.InducHobTabl.RowName = {};
+            app.InducHobTabl.Position = [353 306 421 176];
+
+            % Create OvenTabl
+            app.OvenTabl = uitable(app.HomeSignature2Tab);
+            app.OvenTabl.ColumnName = {'Feature'; 'Value'};
+            app.OvenTabl.RowName = {};
+            app.OvenTabl.Position = [354 63 421 176];
+
+            % Create HomeSignature3Tab
+            app.HomeSignature3Tab = uitab(app.TabGroup);
+            app.HomeSignature3Tab.Title = 'Home Signature 3';
+            app.HomeSignature3Tab.ForegroundColor = [0.2706 0.3686 0.4314];
+
+            % Create FridgeAxis
+            app.FridgeAxis = uiaxes(app.HomeSignature3Tab);
+            title(app.FridgeAxis, 'Fridge')
+            xlabel(app.FridgeAxis, 'Time (s)')
+            ylabel(app.FridgeAxis, 'Power Profile (W)')
+            zlabel(app.FridgeAxis, 'Z')
+            app.FridgeAxis.Position = [39 535 276 178];
+
+            % Create TVAxis
+            app.TVAxis = uiaxes(app.HomeSignature3Tab);
+            title(app.TVAxis, 'TV')
+            xlabel(app.TVAxis, 'Time (s)')
+            ylabel(app.TVAxis, 'Power Profile (W)')
+            zlabel(app.TVAxis, 'Z')
+            app.TVAxis.Position = [40 306 275 176];
+
+            % Create KettleAxis
+            app.KettleAxis = uiaxes(app.HomeSignature3Tab);
+            title(app.KettleAxis, 'Kettle')
+            xlabel(app.KettleAxis, 'Time (s)')
+            ylabel(app.KettleAxis, 'Power Profile (W)')
+            zlabel(app.KettleAxis, 'Z')
+            app.KettleAxis.Position = [41 63 274 176];
+
+            % Create TVTabl
+            app.TVTabl = uitable(app.HomeSignature3Tab);
+            app.TVTabl.ColumnName = {'Feature'; 'Value'};
+            app.TVTabl.RowName = {};
+            app.TVTabl.Position = [354 306 420 176];
+
+            % Create KettleTabl
+            app.KettleTabl = uitable(app.HomeSignature3Tab);
+            app.KettleTabl.ColumnName = {'Feature'; 'Value'};
+            app.KettleTabl.RowName = {};
+            app.KettleTabl.Position = [354 63 421 176];
+
+            % Create FridgeTabl
+            app.FridgeTabl = uitable(app.HomeSignature3Tab);
+            app.FridgeTabl.ColumnName = {'Feature'; 'Value'};
+            app.FridgeTabl.RowName = {};
+            app.FridgeTabl.Position = [354 537 420 176];
+
+            % Create UKMasterDataTab
+            app.UKMasterDataTab = uitab(app.TabGroup);
+            app.UKMasterDataTab.Title = 'UK Master Data';
+            app.UKMasterDataTab.ForegroundColor = [0.2706 0.3686 0.4314];
+
+            % Create UIAxes_7
+            app.UIAxes_7 = uiaxes(app.UKMasterDataTab);
+            title(app.UIAxes_7, 'Appliances time of use - Histogram')
+            xlabel(app.UIAxes_7, 'Time of the day')
+            ylabel(app.UIAxes_7, 'Energy (kWh)')
+            zlabel(app.UIAxes_7, 'Z')
+            app.UIAxes_7.Position = [23 91 751 304];
+
+            % Create UKMasterTabl
+            app.UKMasterTabl = uitable(app.UKMasterDataTab);
+            app.UKMasterTabl.ColumnName = {'Column 1'; 'Column 2'; 'Column 3'; 'Column 4'};
+            app.UKMasterTabl.RowName = {};
+            app.UKMasterTabl.Position = [58 443 712 281];
+
+            % Create OPTIGRALCopyrightcLabel
+            app.OPTIGRALCopyrightcLabel = uilabel(app.UIFigure);
+            app.OPTIGRALCopyrightcLabel.FontSize = 20;
+            app.OPTIGRALCopyrightcLabel.FontWeight = 'bold';
+            app.OPTIGRALCopyrightcLabel.FontColor = [0.902 0.902 0.902];
+            app.OPTIGRALCopyrightcLabel.Position = [34 780 253 25];
+            app.OPTIGRALCopyrightcLabel.Text = 'OPTIGRAL - Copyright (c)';
+
+            % Create ImportenergyconsumptiondataButton
+            app.ImportenergyconsumptiondataButton = uibutton(app.UIFigure, 'push');
+            app.ImportenergyconsumptiondataButton.ButtonPushedFcn = createCallbackFcn(app, @ImportenergyconsumptiondataButtonPushed, true);
+            app.ImportenergyconsumptiondataButton.BackgroundColor = [0.2706 0.3686 0.4314];
+            app.ImportenergyconsumptiondataButton.FontWeight = 'bold';
+            app.ImportenergyconsumptiondataButton.Position = [35 732 204 35];
+            app.ImportenergyconsumptiondataButton.Text = 'Import energy consumption data';
+
+            % Create DataFilteringPanel
+            app.DataFilteringPanel = uipanel(app.UIFigure);
+            app.DataFilteringPanel.ForegroundColor = [0.902 0.902 0.902];
+            app.DataFilteringPanel.Title = 'Data Filtering';
+            app.DataFilteringPanel.BackgroundColor = [0.2 0.4392 0.6118];
+            app.DataFilteringPanel.FontWeight = 'bold';
+            app.DataFilteringPanel.FontSize = 16;
+            app.DataFilteringPanel.Position = [21 415 288 271];
+
+            % Create ApplyFilterButton
+            app.ApplyFilterButton = uibutton(app.DataFilteringPanel, 'push');
+            app.ApplyFilterButton.ButtonPushedFcn = createCallbackFcn(app, @ApplyFilterButtonPushed, true);
+            app.ApplyFilterButton.BackgroundColor = [0.2706 0.3686 0.4314];
+            app.ApplyFilterButton.FontWeight = 'bold';
+            app.ApplyFilterButton.Position = [23 31 98 24];
+            app.ApplyFilterButton.Text = 'Apply Filter';
+
+            % Create ResetButton
+            app.ResetButton = uibutton(app.DataFilteringPanel, 'push');
+            app.ResetButton.ButtonPushedFcn = createCallbackFcn(app, @ResetButtonPushed, true);
+            app.ResetButton.BackgroundColor = [0.2706 0.3686 0.4314];
+            app.ResetButton.FontWeight = 'bold';
+            app.ResetButton.Position = [143 31 98 24];
+            app.ResetButton.Text = 'Reset';
+
+            % Create StartDateDatePickerLabel
+            app.StartDateDatePickerLabel = uilabel(app.DataFilteringPanel);
+            app.StartDateDatePickerLabel.HorizontalAlignment = 'right';
+            app.StartDateDatePickerLabel.FontWeight = 'bold';
+            app.StartDateDatePickerLabel.FontColor = [0.902 0.902 0.902];
+            app.StartDateDatePickerLabel.Position = [13 154 62 22];
+            app.StartDateDatePickerLabel.Text = 'Start Date';
+
+            % Create StartDateDatePicker
+            app.StartDateDatePicker = uidatepicker(app.DataFilteringPanel);
+            app.StartDateDatePicker.ValueChangedFcn = createCallbackFcn(app, @StartDateDatePickerValueChanged, true);
+            app.StartDateDatePicker.BackgroundColor = [0.8 0.8 0.8];
+            app.StartDateDatePicker.Position = [90 154 150 22];
+
+            % Create EndDateDatePickerLabel
+            app.EndDateDatePickerLabel = uilabel(app.DataFilteringPanel);
+            app.EndDateDatePickerLabel.HorizontalAlignment = 'right';
+            app.EndDateDatePickerLabel.FontWeight = 'bold';
+            app.EndDateDatePickerLabel.FontColor = [0.902 0.902 0.902];
+            app.EndDateDatePickerLabel.Position = [13 100 61 22];
+            app.EndDateDatePickerLabel.Text = ' End Date';
+
+            % Create EndDateDatePicker
+            app.EndDateDatePicker = uidatepicker(app.DataFilteringPanel);
+            app.EndDateDatePicker.ValueChangedFcn = createCallbackFcn(app, @EndDateDatePickerValueChanged, true);
+            app.EndDateDatePicker.BackgroundColor = [0.8 0.8 0.8];
+            app.EndDateDatePicker.Position = [89 100 150 22];
+
+            % Create CustomerDropDownLabel
+            app.CustomerDropDownLabel = uilabel(app.DataFilteringPanel);
+            app.CustomerDropDownLabel.HorizontalAlignment = 'right';
+            app.CustomerDropDownLabel.FontWeight = 'bold';
+            app.CustomerDropDownLabel.FontColor = [0.902 0.902 0.902];
+            app.CustomerDropDownLabel.Position = [11 202 62 22];
+            app.CustomerDropDownLabel.Text = 'Customer';
+
+            % Create CustomerDropDown
+            app.CustomerDropDown = uidropdown(app.DataFilteringPanel);
+            app.CustomerDropDown.Items = {};
+            app.CustomerDropDown.BackgroundColor = [0.8 0.8 0.8];
+            app.CustomerDropDown.Position = [88 202 151 22];
+            app.CustomerDropDown.Value = {};
+
+            % Create DataProcessingPanel
+            app.DataProcessingPanel = uipanel(app.UIFigure);
+            app.DataProcessingPanel.ForegroundColor = [0.902 0.902 0.902];
+            app.DataProcessingPanel.Title = 'Data Processing';
+            app.DataProcessingPanel.BackgroundColor = [0.2 0.4392 0.6118];
+            app.DataProcessingPanel.FontWeight = 'bold';
+            app.DataProcessingPanel.FontSize = 16;
+            app.DataProcessingPanel.Position = [22 184 287 195];
+
+            % Create ReconstructPowerProfileButton
+            app.ReconstructPowerProfileButton = uibutton(app.DataProcessingPanel, 'push');
+            app.ReconstructPowerProfileButton.ButtonPushedFcn = createCallbackFcn(app, @ReconstructPowerProfileButtonPushed, true);
+            app.ReconstructPowerProfileButton.BackgroundColor = [0.2706 0.3686 0.4314];
+            app.ReconstructPowerProfileButton.FontWeight = 'bold';
+            app.ReconstructPowerProfileButton.Position = [19 12 215 35];
+            app.ReconstructPowerProfileButton.Text = 'Reconstruct Power Profile';
+
+            % Create UploadApplianceLoadProfileButton
+            app.UploadApplianceLoadProfileButton = uibutton(app.DataProcessingPanel, 'push');
+            app.UploadApplianceLoadProfileButton.BackgroundColor = [0.2706 0.3686 0.4314];
+            app.UploadApplianceLoadProfileButton.FontWeight = 'bold';
+            app.UploadApplianceLoadProfileButton.Position = [19 113 215 38];
+            app.UploadApplianceLoadProfileButton.Text = 'Upload Appliance Load Profile';
+
+            % Show the figure after all components are created
+            app.UIFigure.Visible = 'on';
+        end
+    end
+
+    % App creation and deletion
+    methods (Access = public)
+
+        % Construct app
+        function app = OPTIGRAL_APP_BackUp_291224
+
+            % Create UIFigure and components
+            createComponents(app)
+
+            % Register the app with App Designer
+            registerApp(app, app.UIFigure)
+
+            if nargout == 0
+                clear app
+            end
+        end
+
+        % Code that executes before app deletion
+        function delete(app)
+
+            % Delete UIFigure when app is deleted
+            delete(app.UIFigure)
+        end
+    end
+end
